@@ -57,6 +57,13 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
         edge.setColor(lightGlass ? 0x38FFFFFF : translucent ? 0x26FFFFFF : 0x1FFFFFFF);
     }
 
+    /** The Night scene (config.json "scene"): the band is drawn by it as frosted glass, with its own padding. */
+    private SceneView frost;
+
+    void setFrost(SceneView scene) {
+        frost = scene;
+    }
+
     /** Concentric corners: the band's radius is the tiles' radius plus the band's padding around them. */
     static float radiusPx(float tileRadiusPx, float paddingPx) {
         return tileRadiusPx + paddingPx;
@@ -105,6 +112,14 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
             }
         }
         if (!any) return;
+        if (frost != null) {
+            // couch-tv's dock: 22px above and below the tiles, 28px at the ends, 46px corners (on a 1080p screen).
+            rect.inset(-frost.frostPadH(), -frost.frostPadV());
+            rect.left = Math.max(rect.left, density);
+            rect.right = Math.min(rect.right, parent.getWidth() - density);
+            if (frost.drawFrost(c, rect, frost.frostRadius(), parent)) return;
+            rect.inset(frost.frostPadH(), frost.frostPadV());
+        }
         float pad = 14 * density;
         // The band can only draw inside the grid, and the first and last dock tiles sit 12dp in from its
         // edges: a full 14dp at the sides sliced the rounded ends flat (#454). Keep the sides, with the

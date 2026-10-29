@@ -2,7 +2,7 @@ name: Build APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, night-theme]
 jobs:
   apk:
     runs-on: ubuntu-latest

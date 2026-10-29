@@ -211,7 +211,7 @@ final class Config {
     final String glassStyle;
 
     static final String GLOW_RADIAL = "radial", GLOW_HORIZON = "horizon";
-    static final String GLASS_DEFAULT = "glass", GLASS_RIM = "rim", GLASS_HALO = "halo";
+    static final String GLASS_DEFAULT = "glass", GLASS_RIM = "rim", GLASS_HALO = "halo", GLASS_RING = "ring";
     /** Show each rotating wallpaper's name from wallpapers/captions.txt (config.xml / theme wallpaper_captions). */
     final boolean wallpaperCaptions;
     /** Answer VIEW_INPUTS with the Inputs menu (handle_view_inputs); see InputsRequestActivity. */
@@ -359,6 +359,7 @@ final class Config {
         if (value == null) return GLASS_DEFAULT;
         String v = value.trim();
         if (GLASS_RIM.equalsIgnoreCase(v)) return GLASS_RIM;
+        if (GLASS_RING.equalsIgnoreCase(v)) return GLASS_RING;
         return GLASS_HALO.equalsIgnoreCase(v) ? GLASS_HALO : GLASS_DEFAULT;
     }
 
@@ -698,6 +699,17 @@ final class Config {
             }
         }
         return json;
+    }
+
+    /**
+     * The pushed theme's config.json as JSON, for readers with keys of their own (SceneConfig). Falls back to
+     * the private copy load() keeps while external storage is unmounted; null when there is no theme.
+     */
+    static JSONObject themeJson(Context ctx) {
+        File dir = dir(ctx);
+        boolean mounted = Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState());
+        JSONObject json = mounted && dir != null ? read(new File(dir, FILE_NAME)) : null;
+        return json != null ? json : read(new File(ctx.getFilesDir(), FILE_NAME));
     }
 
     private static JSONObject read(File file) {

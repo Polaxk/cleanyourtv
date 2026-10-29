@@ -54,9 +54,11 @@ function Drop($name) { "rm -f $dir/$name 2>/dev/null; content delete --uri $uri/
 # pictures is read back from it, so a reset that left the pictures behind still shows the theme it just removed.
 # Both paths use this one string (the same one theme.sh has).
 $clearWallpapers = "mkdir -p $dir/wallpapers 2>/dev/null; rm -f $dir/wallpapers/*.jpg $dir/wallpapers/*.jpeg $dir/wallpapers/*.png $dir/wallpapers/*.webp $dir/wallpapers/*.JPG $dir/wallpapers/*.JPEG $dir/wallpapers/*.PNG $dir/wallpapers/*.WEBP 2>/dev/null; content delete --uri $uri/wallpapers 2>/dev/null"
+# The Night scene's own pictures (scene/ in a theme folder), emptied the same way on every push and reset.
+$clearScene = "rm -f $dir/scene/*.jpg $dir/scene/*.jpeg $dir/scene/*.png $dir/scene/*.webp 2>/dev/null; content delete --uri $uri/scene 2>/dev/null"
 
 if ($Reset) {
-    & $py -I tv.py "mkdir -p $dir 2>/dev/null; $(Drop 'config.json'); $(Drop 'wallpaper.jpg'); $(Drop 'wallpapers/captions.txt'); $clearWallpapers; printf '%s' '$revision' > $tmp-theme_revision; $(Put 'theme_revision'); $restart; echo reset"
+    & $py -I tv.py "mkdir -p $dir 2>/dev/null; $(Drop 'config.json'); $(Drop 'wallpaper.jpg'); $(Drop 'wallpapers/captions.txt'); $clearWallpapers; $clearScene; printf '%s' '$revision' > $tmp-theme_revision; $(Put 'theme_revision'); $restart; echo reset"
     exit 0
 }
 if (-not $Theme) { throw 'usage: theme.ps1 <theme folder> | -Reset' }
@@ -76,6 +78,15 @@ if (Test-Path $wallpapers -PathType Container) {
         if ($_.Name -notmatch '^[A-Za-z0-9_.-]+$') { throw "unsupported wallpaper filename: $($_.Name)" }
         & $py -I b64push.py $_.FullName (Stage "wallpapers/$($_.Name)")
         & $py -I tv.py (Put "wallpapers/$($_.Name)") | Out-Null
+    }
+}
+& $py -I tv.py $clearScene | Out-Null
+$scene = Join-Path $Theme 'scene'
+if (Test-Path $scene -PathType Container) {
+    Get-ChildItem $scene -File | Where-Object { $_.Extension -match '^\.(jpg|jpeg|png|webp)$' } | ForEach-Object {
+        if ($_.Name -notmatch '^[A-Za-z0-9_.-]+$') { throw "unsupported scene filename: $($_.Name)" }
+        & $py -I b64push.py $_.FullName (Stage "scene/$($_.Name)")
+        & $py -I tv.py (Put "scene/$($_.Name)") | Out-Null
     }
 }
 # The collection's names (wallpaper_captions); a theme without them leaves no stale names behind.

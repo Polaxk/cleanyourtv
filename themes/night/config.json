@@ -1,0 +1,37 @@
+{
+  "scene": "night",
+  "wallpaper": false,
+  "sky_intensity": 0,
+  "background_color": "#000000",
+  "single_row": true,
+  "dock_row": true,
+  "dock_band_all": true,
+  "dock_title": false,
+  "rows_below_dock": 0,
+  "columns": 8,
+  "uniform_tiles": true,
+  "ambient_glow": false,
+  "app_glow": false,
+  "icon_only_buttons": true,
+  "icon_only_inputs": true,
+  "show_network_pill": false,
+  "show_greeting": false,
+  "glass_style": "ring",
+  "focus_overshoot": false,
+  "dock_apps": [
+    "com.google.android.youtube.tv",
+    "com.netflix.ninja",
+    "com.disney.disneyplus",
+    "com.spotify.tv.android",
+    "com.opera.browser"
+  ],
+  "library_apps": [
+    "com.opera.browser"
+  ],
+  "app_banners": [
+    "com.google.android.youtube.tv=banner_youtube",
+    "com.netflix.ninja=banner_netflix",
+    "com.disney.disneyplus=banner_disneyplus",
+    "com.spotify.tv.android=banner_spotify"
+  ]
+}

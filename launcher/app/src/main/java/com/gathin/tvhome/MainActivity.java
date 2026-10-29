@@ -194,6 +194,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private String greetingName = "";
     /** Optional time-of-day backdrop (config.xml, sky_intensity); 0 keeps it hidden. */
     private SkyView sky;
+    /** The Night scene behind everything (config.json "scene"); null when no theme asks for it. */
+    private SceneView scene;
+    /** Where the scene's dock tiles start, in window pixels. */
+    private int sceneDockTop;
     private String vpnApp;
     private SpringAnimation springX, springY;
     private float glassTargetX, glassTargetY;
@@ -417,6 +421,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         wallpaperPlayer = new WallpaperPlayer(this, root, cfg);
         sky = findViewById(R.id.sky);
         sky.setIntensity(cfg.skyIntensity);
+        SceneConfig sceneCfg = SceneConfig.load(this, cfg.animations && !cfg.reducedMotion);
+        if (sceneCfg.enabled) {
+            scene = new SceneView(this, sceneCfg);
+            root.addView(scene, 0, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            float k = getResources().getDisplayMetrics().widthPixels / SceneView.DESIGN_W;
+            AppAdapter.useScene(Math.round(sceneCfg.dockTile * k), Math.round(sceneCfg.dockGap * k),
+                    sceneCfg.focusScale / 100f);
+            sceneDockTop = Math.round(sceneCfg.dockTop * k);
+        } else {
+            AppAdapter.useScene(0, 0, 0f);
+        }
         glass = findViewById(R.id.glass);
         glass.setStyle(cfg.glassStyle);
         if (festive) glass.setAccent(festival.accentColor());
@@ -563,8 +579,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             public void onChildViewDetachedFromWindow(@NonNull View v) {
             }
         });
-        if (dockRow) grid.addItemDecoration(new DockDecoration(COLUMNS, density, cinematic, cfg.alwaysShowNames, cfg.dockOpacity, cfg.dockGlass, cfg.dockEvenPadding,
-                singleRow, cfg.dockBandAll));
+        if (dockRow) {
+            DockDecoration deco = new DockDecoration(COLUMNS, density, cinematic, cfg.alwaysShowNames, cfg.dockOpacity, cfg.dockGlass, cfg.dockEvenPadding,
+                    singleRow, cfg.dockBandAll);
+            if (scene != null) {
+                deco.setFrost(scene);
+                scene.setOnLoaded(grid::invalidate);
+            }
+            grid.addItemDecoration(deco);
+        }
         if (cfg.fadeRows) TopFade.attach(grid, 48 * density);
         // Reduced motion: the tiles are simply there, with no entrance (reloadApps skips it there too).
         if (animations && !reducedMotion) {
@@ -601,8 +624,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // A single row never shows the names under its tiles (the title above the row names the app), so the
             // 7dp gap and 22dp label item_app.xml keeps for them would only lift the row: sit it that much lower.
             if (singleRow && !cfg.alwaysShowNames) want += (int) (29 * density);
-            if (grid.getPaddingTop() != want) {
-                grid.setPadding(grid.getPaddingLeft(), want, grid.getPaddingRight(), grid.getPaddingBottom());
+            int padL = grid.getPaddingLeft(), padR = grid.getPaddingRight();
+            if (scene != null) {
+                // The Night scene's dock: the tiles' top at scene_dock_top, the row centred on the screen while it fits.
+                int[] loc = new int[2];
+                grid.getLocationInWindow(loc);
+                want = Math.max(0, sceneDockTop - loc[1] - (int) (14 * density));   // 6dp decoration + 8dp item padding
+                int rowW = (AppAdapter.sceneTilePx + AppAdapter.sceneGapPx) * Math.max(1, adapter.appCount());
+                int minSide = (int) (10 * density);
+                padL = Math.max(minSide, (root.getWidth() - rowW) / 2 - loc[0]);
+                padR = Math.max(minSide, (r - l) - padL - rowW);
+            }
+            if (grid.getPaddingTop() != want || padL != grid.getPaddingLeft() || padR != grid.getPaddingRight()) {
+                grid.setPadding(padL, want, padR, grid.getPaddingBottom());
                 // A vertical grid parks the dock on the new padding line by scrolling (onTileFocused); a sideways
                 // row cannot scroll vertically, and the layout request made from inside this layout pass is
                 // dropped, so lay the row out again on the next frame. The glass and the title were placed for the
@@ -921,6 +955,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return;
         }
         restartIdleClock();
+        if (scene != null) scene.resume();
         promptsPaused = false;
         if (grid.getAdapter() == null) grid.setAdapter(adapter);   // dropped by onTrimMemory
         switch (tileRefresh.onResume(packagesChangedSinceRebuild())) {
@@ -1122,6 +1157,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.removeCallbacks(showIdleClock);
         endReorder();   // Home or another app while reordering keeps the order so far
         wallpaperPlayer.stop();
+        if (scene != null) scene.pause();
         stopAmbientAnimation();
         hero.animate().cancel();
         ambient.animate().cancel();
@@ -1165,6 +1201,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroArtCache.clear();
         heroArtKey = null;
         wallpaperPlayer.releaseForMemoryPressure();
+        if (scene != null) scene.release();
         tileRefresh.invalidate();
     }
 
@@ -1183,6 +1220,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onDestroy();
         unregisterReceiver(packageReceiver);
         wallpaperPlayer.close();
+        if (scene != null) scene.release();
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) tim.unregisterCallback(inputCallback);
@@ -2396,7 +2434,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void updateClockVisibility() {
         boolean valid = System.currentTimeMillis() >= TIME_VALID_AFTER_MS;
-        clockBlock.setVisibility(valid ? View.VISIBLE : View.INVISIBLE);
+        // The Night scene draws its own clock and date; the header keeps its place for the buttons.
+        clockBlock.setVisibility(valid && scene == null ? View.VISIBLE : View.INVISIBLE);
+        if (scene != null) scene.refreshTime();
         handler.removeCallbacks(clockCheck);
         if (valid) {
             updateGreeting();

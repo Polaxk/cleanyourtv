@@ -103,7 +103,21 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
      * Tile width for a grid of this inner width: the cell minus room for the focus zoom and the glass
      * highlight, capped at the design size so 4 columns on a 1080p TV look exactly as before.
      */
+    /**
+     * The Night scene (SceneView): square tiles of a fixed size with a fixed gap, laid out by MainActivity in a
+     * centred row, and its own focus zoom. 0 when no scene is on. Set once in MainActivity.onCreate.
+     */
+    static int sceneTilePx, sceneGapPx;
+    static float sceneFocusScale;
+
+    static void useScene(int tilePx, int gapPx, float focusScale) {
+        sceneTilePx = tilePx;
+        sceneGapPx = gapPx;
+        sceneFocusScale = focusScale;
+    }
+
     static int tileWidthPx(int innerWidthPx, int columns, float density) {
+        if (sceneTilePx > 0) return sceneTilePx;
         int design = Math.round(DESIGN_W_DP * density);
         if (innerWidthPx <= 0 || columns <= 0) return design;
         int cell = innerWidthPx / columns;
@@ -112,6 +126,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     static int tileHeightPx(int tileWidthPx) {
+        if (sceneTilePx > 0) return tileWidthPx;
         return Math.round(tileWidthPx * DESIGN_H_DP / DESIGN_W_DP);
     }
 
@@ -153,6 +168,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
      */
     static int tileWidthPx(int innerWidthPx, int gridHeightPx, int columns, int rowsBelowDock, boolean dockTitle,
                            boolean dockRow, float density) {
+        if (sceneTilePx > 0) return sceneTilePx;
         int w = tileWidthPx(innerWidthPx, columns, density);
         if (gridHeightPx <= 0 || rowsBelowDock <= 0) return w;
         float reserved = (dockRow ? DOCK_EXTRA_DP + BOTTOM_ROOM_DP + (dockTitle ? TITLE_ROOM_DP : 0)
@@ -293,10 +309,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (!seen.add(pkg + '\n' + label)) continue;
             Drawable banner = null;
             // uniform_tiles draws the icon, so an app's banner is never loaded. A module card keeps its banner.
-            if (!(uniformTiles && card == null)) {
-                banner = bundledBanner(appBanners.get(pkg));
-                if (banner == null) banner = loadBanner(pm, ri);
-            }
+            // A bundled picture from app_banners still wins (the Night scene's square app logos).
+            banner = bundledBanner(appBanners.get(pkg));
+            if (banner == null && !(uniformTiles && card == null)) banner = loadBanner(pm, ri);
             // The icon is only drawn (and sampled for the glow) when there is no banner, so a tile with a
             // banner skips loading and decoding it.
             Drawable icon = banner == null ? ri.loadIcon(pm) : null;
@@ -417,7 +432,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         name.setLayoutParams(nameLp);
         // A sideways row would stretch a match_parent item across the whole screen: give it a grid column's width.
-        if (singleRow) v.getLayoutParams().width = inner / dockSize;
+        if (singleRow) v.getLayoutParams().width = sceneTilePx > 0 ? sceneTilePx + sceneGapPx : inner / dockSize;
         if (uniformTiles) {
             // tvOS-style tile: a large centred mark, no caption inside the card.
             View icon = v.findViewById(R.id.icon);
@@ -642,6 +657,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     float focusScale() {
+        if (sceneFocusScale > 0f) return animations ? sceneFocusScale : 1f;
         return !animations ? 1f : advancedEffects ? 1.12f : 1.10f;
     }
 
@@ -846,6 +862,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     /** Corner radius for a tile of this width: 16dp at the design width, proportionally less when smaller. */
     static float cornerRadius(int tileWidthPx, float density) {
+        // couch-tv: 26px corners on a 112px icon.
+        if (sceneTilePx > 0) return tileWidthPx * 26f / 112f;
         return 16f * density * Math.min(1f, tileWidthPx / (DESIGN_W_DP * density));
     }
 
