@@ -6,6 +6,8 @@
   "scene_wind": 8,
   "scene_ripples": true,
   "scene_fps": 30,
+  "stock_home_redirect": "com.kitking.geminilauncher",
+  "restore_key_services": true,
   "wallpaper": false,
   "sky_intensity": 0,
   "background_color": "#000000",
