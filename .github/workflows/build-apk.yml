@@ -16,6 +16,10 @@ jobs:
         with:
           packages: platforms;android-34 build-tools;34.0.0
       - uses: gradle/actions/setup-gradle@v4
+      # One signing key for every build, so each new APK installs over the last one (adb install -r).
+      # It is a debug key with the public password "android": fine for your own TV, never for a store.
+      - name: Fixed signing key
+        run: mkdir -p ~/.android && cp .github/debug.keystore ~/.android/debug.keystore
       - name: Build release APK
         working-directory: launcher
         run: |
