@@ -204,9 +204,11 @@ final class SceneView extends View {
         new Thread(() -> {
             Resources res = app.getResources();
             Bitmap p = decode(res, file(dir, "photo.jpg"), rain ? R.drawable.scene_rain_photo : R.drawable.scene_night_photo);
-            Bitmap g = decode(res, file(dir, "glass.jpg"), rain ? R.drawable.scene_rain_glass : R.drawable.scene_night_glass);
+            Bitmap glassFull = decode(res, file(dir, "glass.jpg"), rain ? R.drawable.scene_rain_glass : R.drawable.scene_night_glass);
             // The glass is only ever seen through text and a blurred band: half size looks the same at a quarter of the memory.
-            if (g != null && g.getWidth() > 1200) g = Bitmap.createScaledBitmap(g, g.getWidth() / 2, g.getHeight() / 2, true);
+            Bitmap g = glassFull != null && glassFull.getWidth() > 1200
+                    ? Bitmap.createScaledBitmap(glassFull, glassFull.getWidth() / 2, glassFull.getHeight() / 2, true)
+                    : glassFull;
             File fgFile = file(dir, "fg.webp");
             if (fgFile == null || !fgFile.isFile()) fgFile = file(dir, "fg.png");
             Bitmap f = decode(res, fgFile, rain ? R.drawable.scene_rain_fg : R.drawable.scene_night_fg);
