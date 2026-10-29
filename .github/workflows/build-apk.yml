@@ -20,7 +20,12 @@ jobs:
         working-directory: launcher
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
+          set -o pipefail
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee build.log || {
+            grep -E "error:|warning:.*\.java|What went wrong|e: |FAILED|Exception|Caused by|\.java:[0-9]+|\.xml:[0-9]+|AAPT|Lint found" -A2 build.log | head -120 > err.txt
+            echo "::error title=gradle::$(sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\r//g' -e 's/\n/%0A/g' err.txt)"
+            exit 1
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: cleanyourtv-launcher
